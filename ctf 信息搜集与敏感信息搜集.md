@@ -1,0 +1,244 @@
+## CTF信息搜集[只涉及学习知识,不要恶意使用]
+
+1.开发注释未及时删除    法一:直接按F12打开开发者工具 
+
+​    法二:ctrl+u查看源代码,发现注释存在flag  
+
+
+
+2.js前台拦截  
+
+<script type="text/javascript"> window.oncontextmenu = function(){return false}; window.onselectstart = function(){return false}; window.onkeydown = function(){if (event.keyCode==123){event.keyCode=0;event.returnValue=false;}}; </script>
+
+  分析js代码可知 
+
+​	(1)**禁止右键菜单**:  window.oncontextmenu = function(){return false};
+
+​	(2)**禁止文本选择**：window.onselectstart = function(){return false};
+
+​	(3)**禁止使用开发者工具**：window.onkeydown = function(){if (event.keyCode==123){event.keyCode=0;event.returnValue=false;}};
+
+  所以F12不能使用了, ctrl+u依旧可以正常查看原代码
+
+
+
+3.抓包查找(抓包工具Burp Suite)
+
+  在响应头可以看到 flag
+
+  法二: 还是F12打开开发者工具,打开网络页面,刷新页面,找到响应头的flag即可 (和抓包的效果类似)
+
+
+
+4.robots文件泄露
+
+  首先robots文件为啥会泄露:因为有些框架请求路径中可能会存在robots.txt文件.
+
+  在URL后面加上 robots.txt  robots.txt会给出flag所在的路径,直接在最初的url改后缀即可
+
+
+
+​	robots.txt是爬虫协议文件 会包含以下内容:
+
+​	User-agent: 搜索机器人的名称
+
+​	Disallow: 不允许搜索机器人访问的地址
+
+​	Allow: 允许搜索机器人访问的地址
+
+​	若User-agent是*，则表示允许所有的搜索机器人访问该站点下的所有文件。在"robots.txt"文件中，"User-agent:*"这样的记录只能有一条。
+
+​	Disallow和Allow后面跟的是地址,这个URL可以是一条完整的路径，也可以是部分的，地址的描述格式符合正则表达式(regex)的规则。因此可以在python中使用正则表达式来筛选出可以访问的地址。需要特别注意的是Disallow与Allow行的顺序是有意义的，robot会根据第一个匹配成功的Allow或Disallow行确定是否访问某个URL。
+
+
+
+5.phps源码泄露(备份文件问题)
+
+  使用工具扫描网站 法一 dirsearch 
+
+​	法二 使用fuzzing字典[https://github.com/3had0w/Fuzzing-Dicts/blob/master/%E5%B8%B8%E8%A7%81%E7%BD%91%E7%AB%99%E5%A4%87%E4%BB%BD%E6%96%87%E4%BB%B6%E5%AD%97%E5%85%B8%EF%BC%882954%EF%BC%89.txt](https://github.com/3had0w/Fuzzing-Dicts/blob/master/常见网站备份文件字典（2954）.txt) 依靠burpsuite爆破
+
+​	法三: 备份文件扫描 https://github.com/shanyuhe/fzbk
+
+​	发现有后缀的 .phps或者linux备份文件 .php.swp的文件	
+
+​	URL+泄露文件名 即可找到flag
+
+
+
+6.解压源码到当前目录
+
+  同5的操作步骤
+
+​	url + www.zip 下载含有flag的压缩包
+
+
+
+7.版本控制历史
+
+  用dirsearch扫描
+
+  url + .git (Git 是一个版本控制软件)
+
+  url + .svn (SVN 是一个版本控制系统)
+
+
+
+8.vim生产环境
+
+​	首先 vim编辑器使用时会有一个缓存文件，这个缓存文件在保存时进行删除，但是在vim意外退出时这个缓存文件，会以源文件加一个.swp后缀进行保存，我们可以尝试访问这些文件来尝试获取一些文件
+
+​	用dirsearch扫描 url+index.php.swp (第一次意外退出生成swp 第二次swo 第三次swn)
+
+
+
+9.查找含有敏感信息的文档
+
+10.测试用的探针没删除 
+
+  可以查看php探针: URL+tz.php
+
+11.审查js代码,找到关键信息
+
+
+
+
+
+## 敏感信息泄露部分(非CTF)
+
+### 敏感信息总结: 
+
+1.web目录 (web目录扫描工具 eg:dirsearch)
+
+2.用户信息(下方详解)
+
+3.备份文件 (下方有详细解释)
+
+4.错误信息 (下方DEBUG模块详解)
+
+5..svn和.git (版本控制)
+
+
+
+### 敏感信息分类:
+
+1.版本控制器产生的文件 
+
+2.系统/目录生产的临时文件 
+
+3.各种备份文件 
+
+4.错误配置产生的敏感信息 
+
+5.本该加密的文件未加密,弱加密 
+
+6.单纯放到WEB目录(或者其他可以获取的地方),忘记删除的文件
+
+7.企业人员个人信息
+
+
+
+### 用户信息泄露
+
+1、评论隐私保护审查：确保在展示用户评论时，涉及到的个人信息如手机号或邮箱地址被正确加密处理（例如显示为1888****0101格式），并检查通过抓包工具是否能揭露这些信息的原始数据(直接显示原文的那种)，以及是否存在其他参数暴露的风险。(QQ密码找回涉及到这种手机号形式)
+
+2、转账信息安全性验证：在进行银行转账操作时，用户输入的对方姓名需经过安全验证。需检查这一过程中是否无意间泄露了用户其他敏感信息，比如电话号码，并通过抓包分析历史转账记录的保密性。
+
+3、搜索功能安全测试：评估搜索功能是否有潜在漏洞，可能导致搜索结果意外曝光用户的私人信息。
+
+4、个人资料页面权限控制：检查个人页面是否存在可泄露敏感信息的接口，尝试通过修改请求参数测试是否能实现越权访问，确保用户信息的安全隔离。
+
+5、客户服务环节的安全性：利用社会工程学方法测试客服交互过程中的安全防护，防止信息泄露。
+
+6、上传与数据更新机制审核：对于头像上传、证件上传等功能，检查是否存在URL直接访问未授权资源的问题，同时在用户资料修改环节确保权限控制得当，防止用户名修改等操作导致的越权问题，以及下级账号系统的访问控制是否严密。
+
+7、第三方集成安全：分析与第三方平台（如GitHub）集成部分是否存在信息泄露风险，尤其是存储在第三方平台上的用户数据。
+
+8.任意账号重置 不用多说
+
+9、API接口参数安全性：详细审查所有接口调用中的参数，特别是ID参数，验证其是否能够有效防止篡改和越权访问。
+
+10、弱口令 直接用户 admin 密码 123456或者其他简单且统一的密码 
+
+11、遗留敏感文件检查：全面扫描并确认所有包含敏感信息的文件（包括但不限于.xml、.git、.svn、文档和数据库备份文件等）已从生产环境中彻底清除，以防信息泄露。
+
+### 各种备份文件后缀
+
+1..bak等相关备份文件
+
+2..zip等相关压缩命令产物
+
+3..tar.gz .tar 等tar命令的产物
+
+4..sql等相关数据库
+
+
+
+.tar文件 (国赛分赛区提交防御文件时,要求后缀改为 .tar.gz)
+
+打包方式: tar -cv -f filename.tar filename (转化为.tar后缀)
+
+-c 	创建一个新的tar归档 
+
+-v 	在创建归档时显示有关的进度的信息
+
+-f 	后接想要创建的归档名称,最后添加归档中的文件名
+
+压缩方法: tar -zcv -f filename.tar.gz filename (转化为.tar.gz后缀文件)
+
+-z	gzip压缩或解压
+
+解压方法: tar -zxv -f filename.tar.gz 
+
+-x	提取文件
+
+
+
+.sql文件
+
+备份方法: mysqldump --opt -d 数据库名称 -u用户名 -p密码 > 保存文件路径
+
+eg: mysqldump --opt -d 圆神 -u root -p 123456 > ../mmm/xxx
+
+导入方法: mysql -u用户名 -p密码 数据库名称 < 用于恢复数据库的数据文件路径
+
+eg: mysql -u root -p 123456 元神 < ../mmm/xxx
+
+
+
+### 系统产生的临时文件
+
+.swp系列文件(产生的原因是VIm意外退出,,生成新的交换文件)
+
+第一次产生的交换文件名为 ".file.txt.swp"  (swp)
+
+第二次意外退出产生的交换文件名为".file.txt.swo" (swo)
+
+第三次产生的交换文件为 ".file.txt.swn" (swn)
+
+
+
+.DS_Store文件(部署线上环境可能导致文件目录结构的泄露)
+
+直接github启动 https://github.com/lijiejie/ds_store_exp 工具
+
+### DEBUG信息
+
+  原理: 快速定位错误的代码,会提示错误类型.
+
+  但是DEBUG信息可能会泄露部分代码,绝对路径等信息.(这些是我们可以获得的有用信息)
+
+​	修复方法:
+
+​	(1)在代码前加入error_reporting(E_ALL^E_NOTICE^E_WARNING);可以关闭所有notice 和 warning 级别的错误。
+
+​	E_ALL 是一个预定义的常量，表示报告所有类型的错误、警告和通知。
+​	E_NOTICE 是指通知级别的错误，通常是代码中可能会有逻辑问题的地方，但不影响程序执行，比如使用了未初始化的变量。
+​	E_WARNING 是警告级别的错误，比通知更严重，表明代码中的某些地方可能有问题，但仍允许脚本继续执行。
+​	E_ALL^E_NOTICE^E_WARNING 使用了位运算符 ^（异或操作符），它的作用是对于每个对应的位，如果两个操作数的相应位相同，则结果位为0；如果不同，则结果位为1。在这个上下文中，它意味着从E_ALL中排除（取消）E_NOTICE和E_WARNING这两种错误类型。
+
+​	(2)在代码前加入error_reporting(0);即可关闭所有报错。
+
+​	(3)打开PHP安装目录下的php.ini文件，找到display_errors=on修改为display_errors = off
+
+​	在PHP配置中，`display_errors` 设置决定了是否在网页上显示错误信息
